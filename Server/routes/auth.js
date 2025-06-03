@@ -119,4 +119,55 @@ router.get("/me", auth, async (req, res) => {
   }
 });
 
+// @route   PUT api/auth/update
+// @desc    Update user profile
+// @access  Private
+router.put("/update", auth, async (req, res) => {
+  try {
+    const {
+      name,
+      resume,
+      skills,
+      company,
+      position,
+      currentPassword,
+      newPassword,
+    } = req.body;
+
+    // Build user object
+    const userFields = {};
+    if (name) userFields.name = name;
+    if (resume !== undefined) userFields.resume = resume;
+    if (skills) userFields.skills = skills;
+    if (company !== undefined) userFields.company = company;
+    if (position !== undefined) userFields.position = position;
+
+    // If password change requested
+    if (currentPassword && newPassword) {
+      // Check current password
+      const user = await User.findById(req.user.id).select("+password");
+
+      const isMatch = await user.matchPassword(currentPassword);
+      if (!isMatch) {
+        return res.status(400).json({ msg: "Current password is incorrect" });
+      }
+
+      // Update password (will be hashed via middleware in User model)
+      userFields.password = newPassword;
+    }
+
+    // Update user
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user.id,
+      { $set: userFields },
+      { new: true }
+    ).select("-password");
+
+    res.json(updatedUser);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Server error");
+  }
+});
+
 module.exports = router;
